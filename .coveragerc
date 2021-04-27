@@ -1,0 +1,11 @@
+[run]
+source =
+    fast_krig
+
+[report]
+omit =
+    */tests.py
+    */test_*.py
+    */*_tests.py
+    */__init__.py
+    */__main__.py
