@@ -1,4 +1,5 @@
-global krig_config
+#global krig_config
+from .._log import get_logger
 
 class InvalidOption(Exception):
     pass
@@ -20,9 +21,8 @@ class Option:
 
 
 class Config:
-    logger_level = Option("off", valid=["off", "DEBUG","INFO","WARNING","ERROR"])
     krigging_method = Option("gaussian", valid=["spherical", "linear", "exponential"])
-    debug = Option(False, [True, False])
+    logger = Option(get_logger("Main"))
 
     def show_options(self):
         return {name: getattr(self, name) for name, val in self.__class__.__dict__.items() if isinstance(val, Option)}

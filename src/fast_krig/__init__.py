@@ -5,4 +5,4 @@ __email__ = 'timothyd.junk@gmail.com'
 __version__ = '0.1.0'
 
 from fast_krig._config.config import Config
-krig_config = Config()
+config = Config()

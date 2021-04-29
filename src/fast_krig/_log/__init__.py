@@ -25,7 +25,7 @@ def get_logger(name=None, logging_format=None):
         sh.setFormatter(logging.Formatter(logging_format))
         logger.addHandler(sh)
         sh.addFilter(EndOfNameFilter())
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     logger.propagate = False
     return logger
 

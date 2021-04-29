@@ -76,10 +76,10 @@ def logger_wrapper(func):
     @functools.wraps(func)
     def wrapped(*args, **kwargs):
         if hasattr(func, "__self__"):
-            if func.__self__.logger_level != "off":
+            if func.__self__.logger.level <= 10:
                 func.__self__.logger.debug(
                     "{func.__qualname__!s} called with arguments: {a}, and kwargs: {k}".format(
-                        func=func, a=", ".join([str(a) for a in args]), k=", ".join(kwargs)
+                        func=func, a=", ".join([str(a) for a in args]), k=", ".join([f"{k}: {v}" for k, v in kwargs.items()])
                     )
                 )
                 time0 = time.time()
