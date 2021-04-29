@@ -3,6 +3,9 @@
 """The setup script."""
 
 from setuptools import setup, find_packages
+from os.path import basename
+from os.path import splitext
+from glob import glob
 
 with open('README.rst') as readme_file:
     readme = readme_file.read()
@@ -43,11 +46,13 @@ setup(
     include_package_data=True,
     keywords='fast_krig',
     name='fast_krig',
-    packages=find_packages(include=['fast_krig', 'fast_krig.*']),
+    packages=find_packages("src"),
+    package_dir={"": "src"},
+    py_modules=[splitext(basename(path))[0] for path in glob("src/*.py")],
     setup_requires=setup_requirements,
     test_suite='tests',
     tests_require=test_requirements,
-    url='https://github.com/csci-e-29/fast_krig',
+    url='https://github.com/csci-e-29/2021sp-final-project-tim-a-davis',
     version='0.1.0',
     zip_safe=False,
 )
