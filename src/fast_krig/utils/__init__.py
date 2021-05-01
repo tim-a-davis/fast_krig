@@ -79,23 +79,28 @@ def logger_wrapper(func):
             if func.__self__.logger.level <= 10:
                 func.__self__.logger.debug(
                     "{func.__qualname__!s} called with arguments: {a}, and kwargs: {k}".format(
-                        func=func, a=", ".join([str(a) for a in args]), k=", ".join([f"{k}: {v}" for k, v in kwargs.items()])
+                        func=func,
+                        a=", ".join([str(a) for a in args]),
+                        k=", ".join([f"{k}: {v}" for k, v in kwargs.items()]),
                     )
                 )
                 time0 = time.time()
                 func_out = func(*args, **kwargs)
                 func.__self__.logger.debug("Function returned %s", func_out)
-                func.__self__.logger.debug("Took %ss to execute", round(time.time() - time0, 3))
+                func.__self__.logger.debug(
+                    "Took %ss to execute", round(time.time() - time0, 3)
+                )
                 return func_out
             else:
                 return func(*args, **kwargs)
         else:
             return func(*args, **kwargs)
+
     return wrapped
 
 
 def wrap_debug(self):
     for k in self.__dir__():
         v = getattr(self, k)
-        if callable(v) and hasattr(v, "__self__"): #only bound methods
+        if callable(v) and hasattr(v, "__self__"):  # only bound methods
             setattr(self, k, logger_wrapper(v))

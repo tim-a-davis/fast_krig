@@ -30,7 +30,6 @@ def get_logger(name=None, logging_format=None):
     return logger
 
 
-
 def logger_wrapper(func):
     @functools.wraps(func)
     def wrapped(*args, **kwargs):
@@ -38,18 +37,23 @@ def logger_wrapper(func):
             if func.__self__.logger_level != "off":
                 func.__self__.logger.debug(
                     "{func.__qualname__!s} called with arguments: {a}, and kwargs: {k}".format(
-                        func=func, a=", ".join([str(a) for a in args]), k=", ".join(kwargs)
+                        func=func,
+                        a=", ".join([str(a) for a in args]),
+                        k=", ".join(kwargs),
                     )
                 )
                 time0 = time.time()
                 func_out = func(*args, **kwargs)
                 func.__self__.logger.debug("Function returned %s", func_out)
-                func.__self__.logger.debug("Took %ss to execute", round(time.time() - time0, 3))
+                func.__self__.logger.debug(
+                    "Took %ss to execute", round(time.time() - time0, 3)
+                )
                 return func_out
             else:
                 return func(*args, **kwargs)
         else:
             return func(*args, **kwargs)
+
     return wrapped
 
 
@@ -57,14 +61,16 @@ class test:
     def __init__(self, logger):
         self.logger = logger
         self.logger_level = "DEBUG"
-        self.debug=True
+        self.debug = True
         if self.debug:
             self.wrap_debug()
+
     def wrap_debug(self):
         for k in self.__dir__():
             v = getattr(self, k)
-            if callable(v) and hasattr(v, "__self__"): #only bound methods
+            if callable(v) and hasattr(v, "__self__"):  # only bound methods
                 setattr(self, k, logger_wrapper(v))
+
     def poop(self, h):
         time.sleep(1)
         return h + 1

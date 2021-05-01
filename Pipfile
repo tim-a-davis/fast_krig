@@ -17,6 +17,7 @@ pytest-runner = "*"
 pre-commit = "*"
 tox = "*"
 sphinx = "*"
+matplotlib = "*"
 
 [requires]
 python_version = "3.9"
