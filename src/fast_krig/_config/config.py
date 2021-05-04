@@ -27,9 +27,9 @@ class Option:
 
 
 class Config:
-    krigging_method = Option("gaussian", valid=["spherical", "linear", "exponential"])
     logger = Option(get_logger("Main"))
-    model = Option(default=Exponential())
+    model = Option(default=Exponential)
+    model_kwargs = Option(default={})
 
     def show_options(self):
         return {

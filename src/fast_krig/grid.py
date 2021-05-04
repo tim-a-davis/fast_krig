@@ -94,14 +94,100 @@ class Grid(np.ndarray):
                 setattr(obj, k, v)
         return obj
 
-    def get_sample(self, attr: str="empty_coos"):
+    def get_sample(self, attr: str="empty_coos", sample_attr="sample_size"):
         return self.coos[
-            np.unique(np.random.choice(getattr(self, attr), self.sample_size))
+            np.unique(np.random.choice(getattr(self, attr), getattr(self, sample_attr)))
         ].T
 
     def krig_sample(self):
-        ex, ey, ez = self.get_sample("empty_coos")
-        fx, fy, fz = self.get_sample("filled_coos")
+        e = ex, ey, ez = self.get_sample("empty_coos")
+        f = fx, fy, fz = self.get_sample("filled_coos")
         filled_samples = self[fx, fy, fz]
+        dists = self.calculate_self_distance(f.copy(), xy_delta=self.xy_delta, z_delta=self.z_delta)
+        semivariance = self.MSE(filled_samples)
+        model = self.get_fitted_model(dists, semivariance)
+        sample_dists = self.sample_distance(f.copy(), e.copy(), xy_delta=self.xy_delta, z_delta=self.z_delta)
+        calculated_semivariance = np.linalg.inv(model(dists))
+        sample_semivariance = model(sample_dists)
+        weights = np.dot(calculated_semivariance, np.expand_dims(sample_semivariance, 2)).squeeze().T
+        new_vals = np.sum(filled_samples * weights, axis=1)
+        self[ex, ey, ez] = new_vals
+        
+    
+    def get_fitted_model(self, dists, vals):
+        model = fk.config.model(fk.config.model_kwargs)
+        model.autofit(dists.ravel(), vals.ravel())
+        return model
+    
+    @staticmethod
+    def sample_distance(filled, empty, xy_delta=1, z_delta=1, two_D=True) -> np.ndarray:
+        filled[:2, :] *= xy_delta
+        filled[2, :] *= z_delta
+        empty[:2, :] *= xy_delta
+        empty[2, :] *= z_delta
+        if two_D:
+            return np.sqrt(np.sum(np.square(filled[:2, :] - np.expand_dims(empty[:2, :].T, 2)), axis=1))
+        else:
+            return np.sqrt(np.sum(np.square(filled - np.expand_dims(empty.T, 2)), axis=1))
+
+    @staticmethod
+    def calculate_self_distance(coords:np.ndarray, xy_delta=1, z_delta=1, two_D=True) -> np.ndarray:
+        """This method will calculate the distance from each point
+        to every other point in the grid.  This can quickly lead to memory
+        errors, so precautions should be taken to limit the size of the input
+        coordinates. 
+
+        Args:
+            coords (np.ndarray): The input coordinates for the filled datapoints.  
+                                 Should be of shape (3, no_datapoints)
+            two_D (Bool): Whether or not to calculate a 2D distance instead of 3D.
+                            Defaults to True.
+
+        Returns:
+            np.ndarray: An no_datapoints x no_datapoints grid of distances
+        """
+        coords[:2, :] *= xy_delta
+        coords[2, :] *= z_delta
+        if two_D:
+            return np.sqrt(np.sum(np.square(coords[:2, :] - np.expand_dims(coords[:2, :].T, 2)), axis=1))
+        else:
+            return np.sqrt(np.sum(np.square(coords - np.expand_dims(coords.T, 2)), axis=1))
+    
+    @staticmethod
+    def MSE(vals: np.ndarray) -> np.ndarray:
+        """This method will calculate the mean squared difference between every
+        two values in the input array.  This is to generate values to go into the
+        experimental variogram. This can quickly lead to memory errors, so 
+        precautions should be taken to limit the size of the input values. 
+
+        Args:
+            vals (np.ndarray): The observed values in the sampled grid.
+
+        Returns:
+            np.ndarray: The squared distances of each point to every other point.
+        """        
+        return np.square(vals - np.expand_dims(vals.reshape(-1, 1), 1)).squeeze() / vals.size
 
 
+
+
+#np.sqrt(np.sum(np.square(f - np.expand_dims(f.T, 2)), axis=1))
+
+"""
+from fast_krig.examples.logs import generate_fake_log
+from fast_krig.grid import Grid
+import numpy as np
+import matplotlib.pyplot as plt
+
+fake_logs = [
+    generate_fake_log(9000, 10000, 1, 0.2, 2, log=False, name="RESISTIVITY")
+    for i in range(3000)
+]
+
+self = Grid(fake_logs, stream="RESISTIVITY", z_range=(9900, 9901))
+
+
+plt.imshow(np.nan_to_num(self, 0))
+plt.show()
+
+"""

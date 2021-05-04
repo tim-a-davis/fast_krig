@@ -9,6 +9,7 @@ class Exponential:
         self.range = krig_range
         self.sill = sill
     def autofit(self, dist, vals):
+        if self.range and self.sill: return
         if not self.sill: self.sill = vals.mean()
         func = functools.partial(self.variogram, self.sill)
         popt, pcov = curve_fit(func, dist, vals, p0=(dist.mean()))
@@ -38,9 +39,11 @@ class Gaussian:
         return self.variogram(self.sill, dist, self.range)
 
 
+"""
 class Linear:
     raise NotImplementedError()
 
 
 class Spherical:
     raise NotImplementedError()
+"""
