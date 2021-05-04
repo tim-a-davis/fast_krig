@@ -22,8 +22,7 @@ class GridConstructor:
         self.stream = stream
         if auto_range:
             self._get_auto_xy_range()
-        if not z_range:
-            self._get_auto_z_range()
+        self.z_range = z_range or self._get_auto_z_range()
         self._make_grid()
         self._fill_grid()
         self.n_samples = n_samples
@@ -45,7 +44,7 @@ class GridConstructor:
 
     def _get_auto_z_range(self):
         indices = np.stack([log.index for log in self.logs]).T
-        self.z_range = (np.min(indices) - 1, np.max(indices) + 1)
+        return (np.min(indices) - 1, np.max(indices) + 1)
 
     def _make_grid(self):
         self.z = np.arange(self.z_range[0], self.z_range[1], self.z_delta)
@@ -70,20 +69,19 @@ class GridConstructor:
         )
 
     def _fill_grid(self):
-        self.fill_x, self.fill_y, self.fill_z = zip(
+        self.fill_x, self.fill_y, self.fill_z, self.log_z = zip(
             *[
                 (
                     np.abs(self.x - log.x_coord).argmin(),
                     np.abs(self.y - log.y_coord).argmin(),
-                    np.where((self.z >= log.index.min()) & (self.z <= log.index.max()))[
-                        0
-                    ],
+                    np.where((self.z >= log.index.min()) & (self.z <= log.index.max()))[0],
+                    np.where((log.index >= self.z.min()) & (log.index <= self.z.max()))
                 )
                 for log in self.logs
             ]
         )
         self.grid[self._get_filled_slice()] = np.stack(
-            [getattr(log, self.stream) for log in self.logs]
+            [getattr(log, self.stream)[log_z] for log, log_z in zip(self.logs, self.log_z)]
         )
 
 
@@ -96,7 +94,7 @@ class Grid(np.ndarray):
                 setattr(obj, k, v)
         return obj
 
-    def get_sample(self, attr):
+    def get_sample(self, attr: str="empty_coos"):
         return self.coos[
             np.unique(np.random.choice(getattr(self, attr), self.sample_size))
         ].T
@@ -105,3 +103,5 @@ class Grid(np.ndarray):
         ex, ey, ez = self.get_sample("empty_coos")
         fx, fy, fz = self.get_sample("filled_coos")
         filled_samples = self[fx, fy, fz]
+
+
