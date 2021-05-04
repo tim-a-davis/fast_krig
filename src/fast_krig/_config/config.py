@@ -1,5 +1,6 @@
 # global krig_config
 from .._log import get_logger
+from ..models import Exponential, Gaussian
 
 
 class InvalidOption(Exception):
@@ -28,6 +29,7 @@ class Option:
 class Config:
     krigging_method = Option("gaussian", valid=["spherical", "linear", "exponential"])
     logger = Option(get_logger("Main"))
+    model = Option(default=Exponential())
 
     def show_options(self):
         return {

@@ -74,8 +74,3 @@ class test:
     def poop(self, h):
         time.sleep(1)
         return h + 1
-
-
-t = test(logger=get_logger("Main"))
-
-t.poop(5)
