@@ -1,6 +1,6 @@
 import functools
-from multiprocessing import Process
-import queue
+import fast_krig as fk
+from multiprocessing import Process, Queue
 import time
 from .make_workers import make_workers
 
@@ -17,6 +17,42 @@ def make_worker(daemon=True):
             return proc
         return wrapper
     return decorator
+
+
+class WorkForce:
+    def __init__(self, worker=None, inlet=Queue(), outlet=Queue(), daemon=True):
+        self.worker = worker
+        self.inlet = inlet
+        self.outlet = outlet
+        self.daemon = daemon
+        self.workers = []
+        self.logger = fk.config.logger.getChild(self.__class__.__name__)
+
+    def __getattr__(self, attr):
+        try:
+            return super(WorkForce, self).__getattr__(attr)
+        except AttributeError:
+            return functools.partial(self.exec_method, method=attr)
+    
+    def _make_worker(self):
+        func = make_worker(daemon=True)(make_workers)
+        return func(worker=self.worker, worker_queue=self.inlet, result_queue=self.outlet)
+    
+    def _spawn(self):
+        worker = self._make_worker()
+        self.workers.append(worker)
+        if worker.is_alive():
+            self.logger.info(f"PID {worker.pid} is up and running")
+        else:
+            self.logger.info(f"PID {worker.pid} tried to start but died")
+    
+    def exec_method(self, *args, method=None, **kwargs):
+        message = dict(
+            method=method,
+            args=args,
+            kwargs=kwargs
+        )
+        self.inlet.put(message)
 
 
 def make_workforce(worker=None, worker_queue=None, result_queue=None, daemon=True):

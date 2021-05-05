@@ -2,7 +2,7 @@ import queue
 
 
 def make_workers(worker=None, worker_queue=None, result_queue=None):
-    if not worker: return
+    if worker is None: return
     while True:
         try:
             message = worker_queue.get()

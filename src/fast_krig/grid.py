@@ -1,6 +1,8 @@
 from typing import Union
 import numpy as np
+from contextlib import contextmanager
 import fast_krig as fk
+import time
 
 
 class GridConstructor:
@@ -16,6 +18,7 @@ class GridConstructor:
         stream=None,
         n_samples=500,
     ):
+        self.logger = fk.config.logger.getChild(self.__class__.__name__)
         self.logs = logs
         self.xy_delta = xy_delta
         self.z_delta = z_delta
@@ -94,25 +97,65 @@ class Grid(np.ndarray):
                 setattr(obj, k, v)
         return obj
 
-    def get_sample(self, attr: str="empty_coos", sample_attr="sample_size"):
-        return self.coos[
-            np.unique(np.random.choice(getattr(self, attr), getattr(self, sample_attr)))
-        ].T
+    def __array_finalize__(self, obj):
+        if obj is None: return
+        try:
+            for k, v in obj.__dict__.items():
+                setattr(self, k, v)
+        except AttributeError:
+            pass
+
+    def __reduce__(self):
+        pickled_state = super(Grid, self).__reduce__()
+        unneeded = ["logs"]
+        needed_items = {k: v for k, v in self.__dict__.items() if k not in unneeded}
+        new_state = pickled_state[2] + (needed_items,)
+        return (pickled_state[0], pickled_state[1], new_state)
+
+    def __setstate__(self, state):
+        self.__dict__.update(state[-1])
+        super(Grid, self).__setstate__(state[0:-1])
+
+    def update_fill(self, filled_coords: np.ndarray, empty_coos_coords: np.ndarray):
+        self.filled[filled_coords] = True
+        self.empty_coos = np.delete(self.empty_coos, empty_coos_coords)
+
+    @contextmanager
+    def get_sample(self):
+        max_sample = np.min([self.sample_size, self.empty_coos.size])
+        empty_coos_coords = np.random.choice(np.arange(self.empty_coos.size), max_sample, replace=False)
+        sample_points = self.empty_coos[empty_coos_coords]
+        empty_coos = x, y, z = self.coos[sample_points].T
+        filled_coos = self.coos[np.unique(np.random.choice(self.filled_coos, self.sample_size))].T
+        try:
+            yield empty_coos, filled_coos
+        finally:
+            if not np.isnan(self[x, y, z]).any():
+                self.update_fill(sample_points, empty_coos_coords)
 
     def krig_sample(self):
-        e = ex, ey, ez = self.get_sample("empty_coos")
-        f = fx, fy, fz = self.get_sample("filled_coos")
-        filled_samples = self[fx, fy, fz]
-        dists = self.calculate_self_distance(f.copy(), xy_delta=self.xy_delta, z_delta=self.z_delta)
-        semivariance = self.MSE(filled_samples)
-        model = self.get_fitted_model(dists, semivariance)
-        sample_dists = self.sample_distance(f.copy(), e.copy(), xy_delta=self.xy_delta, z_delta=self.z_delta)
-        calculated_semivariance = np.linalg.inv(model(dists))
-        sample_semivariance = model(sample_dists)
-        weights = np.dot(calculated_semivariance, np.expand_dims(sample_semivariance, 2)).squeeze().T
-        new_vals = np.sum(filled_samples * weights, axis=1)
-        self[ex, ey, ez] = new_vals
-        
+        with self.get_sample() as sample:
+            ex, ey, ez = e = sample[0]
+            fx, fy, fz = f = sample[1]
+            filled_samples = self[fx, fy, fz]
+            dists = self.calculate_self_distance(f.copy(), xy_delta=self.xy_delta, z_delta=self.z_delta)
+            semivariance = self.MSE(filled_samples)
+            model = self.get_fitted_model(dists, semivariance)
+            sample_dists = self.sample_distance(f.copy(), e.copy(), xy_delta=self.xy_delta, z_delta=self.z_delta)
+            calculated_semivariance = np.linalg.inv(model(dists))
+            sample_semivariance = model(sample_dists)
+            weights = np.dot(calculated_semivariance, np.expand_dims(sample_semivariance, 2)).squeeze().T
+            new_vals = np.sum(filled_samples * weights, axis=1)
+            self[ex, ey, ez] = new_vals
+        return ex.size # The number of empty cells that were filled
+
+    def krig(self, *args, sample_size=1, **kwargs):
+        t1 = time.time()
+        while sample_size > 0:
+            sample_size = self.krig_sample()
+        t2 = time.time()
+        self.logger.info(f"Finished in {round(t2 - t1, 2)} seconds")
+        return self
     
     def get_fitted_model(self, dists, vals):
         model = fk.config.model(fk.config.model_kwargs)
@@ -180,14 +223,42 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 fake_logs = [
-    generate_fake_log(9000, 10000, 1, 0.2, 2, log=False, name="RESISTIVITY")
+    generate_fake_log(9000, 10000, 1, 0.2, 5, log=False, name="RESISTIVITY")
     for i in range(3000)
 ]
 
 self = Grid(fake_logs, stream="RESISTIVITY", z_range=(9900, 9901))
-
-
-plt.imshow(np.nan_to_num(self, 0))
+self2 = Grid(fake_logs, stream="RESISTIVITY", z_range=(9900, 9901))
+self.krig()
+self2.krig()
+fig, ax = plt.subplots(1, 3, figsize=(16, 9))
+fig.tight_layout()
+ax[0].imshow(np.nan_to_num(self, 0))
+ax[1].imshow(np.nan_to_num(self2, 0))
+ax[2].imshow(np.nan_to_num(self2, 0) - np.nan_to_num(self, 0))
 plt.show()
+
+
+
+
+from fast_krig.examples.logs import generate_fake_log
+from fast_krig.grid import Grid
+from fast_krig.utils import WorkForce
+import numpy as np
+import matplotlib.pyplot as plt
+
+fake_logs = [
+    generate_fake_log(9000, 10000, 1, 0.2, 5, log=False, name="RESISTIVITY")
+    for i in range(3000)
+]
+
+grid = Grid(fake_logs, stream="RESISTIVITY", z_range=(9900, 9901))
+
+
+workforce = WorkForce(worker=grid)
+
+workforce._spawn()
+workforce.krig()
+
 
 """
