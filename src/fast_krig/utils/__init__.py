@@ -1,58 +1,84 @@
 import functools
 import fast_krig as fk
 from multiprocessing import Process, Queue
+import queue
 import time
 from .make_workers import make_workers
+import uuid
 
 
-def make_worker(daemon=True):
+def make_worker(daemon=True, name=None):
     """ This is a decorator that puts the decorated function on a daemon thread """
+
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             proc = Process(
-                target=func, args=args, kwargs=kwargs, daemon=daemon
+                target=func, args=args, kwargs=kwargs, daemon=daemon, name=name
             )
             proc.start()
             return proc
+
         return wrapper
+
     return decorator
 
 
 class WorkForce:
-    def __init__(self, worker=None, inlet=Queue(), outlet=Queue(), daemon=True):
+    def __init__(
+        self,
+        *args,
+        worker=None,
+        inlet=Queue(),
+        outlet=Queue(),
+        daemon=True,
+        max_workers=2,
+        **kwargs,
+    ):
         self.worker = worker
         self.inlet = inlet
         self.outlet = outlet
         self.daemon = daemon
         self.workers = []
+        self.max_workers = max_workers
         self.logger = fk.config.logger.getChild(self.__class__.__name__)
 
     def __getattr__(self, attr):
         try:
             return super(WorkForce, self).__getattr__(attr)
         except AttributeError:
-            return functools.partial(self.exec_method, method=attr)
-    
+            return functools.partial(self._exec_method, method=attr)
+
     def _make_worker(self):
-        func = make_worker(daemon=True)(make_workers)
-        return func(worker=self.worker, worker_queue=self.inlet, result_queue=self.outlet)
-    
-    def _spawn(self):
-        worker = self._make_worker()
-        self.workers.append(worker)
-        if worker.is_alive():
-            self.logger.info(f"PID {worker.pid} is up and running")
-        else:
-            self.logger.info(f"PID {worker.pid} tried to start but died")
-    
-    def exec_method(self, *args, method=None, **kwargs):
-        message = dict(
-            method=method,
-            args=args,
-            kwargs=kwargs
+        name = str(uuid.uuid4())
+        func = make_worker(daemon=True, name=name)(make_workers)
+        return func(
+            worker=self.worker,
+            worker_queue=self.inlet,
+            result_queue=self.outlet,
+            myname=name,
         )
+
+    def _spawn(self):
+        if len(self.workers) < self.max_workers:
+            worker = self._make_worker()
+            self.workers.append(worker)
+            if worker.is_alive():
+                self.logger.info(f"PID {worker.pid} is up and running")
+            else:
+                self.logger.info(f"PID {worker.pid} tried to start but died")
+        else:
+            pass
+
+    def _exec_method(self, *args, method=None, **kwargs):
+        message = dict(method=method, args=args, kwargs=kwargs)
         self.inlet.put(message)
+
+    def _read(self):
+        try:
+            return self.outlet.get_nowait()
+        except queue.Empty:
+            pass
 
 
 def make_workforce(worker=None, worker_queue=None, result_queue=None, daemon=True):
@@ -67,7 +93,7 @@ def make_workforce(worker=None, worker_queue=None, result_queue=None, daemon=Tru
     >>> workers
     [<Process name='Process-1' pid=79163 parent=79126 started daemon>]
 
-    The general framework for interacting with the processes is to send a message with the 
+    The general framework for interacting with the processes is to send a message with the
     following format:
 
     {
@@ -86,7 +112,9 @@ def make_workforce(worker=None, worker_queue=None, result_queue=None, daemon=Tru
     """
 
     make_force = make_worker(daemon=True)(make_workers)
-    return functools.partial(make_force, worker=worker, worker_queue=worker_queue, result_queue=result_queue)
+    return functools.partial(
+        make_force, worker=worker, worker_queue=worker_queue, result_queue=result_queue
+    )
 
 
 def logger_wrapper(func):
@@ -121,4 +149,3 @@ def wrap_debug(self):
         v = getattr(self, k)
         if callable(v) and hasattr(v, "__self__"):  # only bound methods
             setattr(self, k, logger_wrapper(v))
-

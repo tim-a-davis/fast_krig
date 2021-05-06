@@ -2,6 +2,7 @@ from typing import Union
 import numpy as np
 from contextlib import contextmanager
 import fast_krig as fk
+from fast_krig.utils import WorkForce
 import time
 
 
@@ -77,14 +78,19 @@ class GridConstructor:
                 (
                     np.abs(self.x - log.x_coord).argmin(),
                     np.abs(self.y - log.y_coord).argmin(),
-                    np.where((self.z >= log.index.min()) & (self.z <= log.index.max()))[0],
-                    np.where((log.index >= self.z.min()) & (log.index <= self.z.max()))
+                    np.where((self.z >= log.index.min()) & (self.z <= log.index.max()))[
+                        0
+                    ],
+                    np.where((log.index >= self.z.min()) & (log.index <= self.z.max())),
                 )
                 for log in self.logs
             ]
         )
         self.grid[self._get_filled_slice()] = np.stack(
-            [getattr(log, self.stream)[log_z] for log, log_z in zip(self.logs, self.log_z)]
+            [
+                getattr(log, self.stream)[log_z]
+                for log, log_z in zip(self.logs, self.log_z)
+            ]
         )
 
 
@@ -98,7 +104,8 @@ class Grid(np.ndarray):
         return obj
 
     def __array_finalize__(self, obj):
-        if obj is None: return
+        if obj is None:
+            return
         try:
             for k, v in obj.__dict__.items():
                 setattr(self, k, v)
@@ -119,14 +126,19 @@ class Grid(np.ndarray):
     def update_fill(self, filled_coords: np.ndarray, empty_coos_coords: np.ndarray):
         self.filled[filled_coords] = True
         self.empty_coos = np.delete(self.empty_coos, empty_coos_coords)
+        self.filled_coos = np.append(self.filled_coos, filled_coords)
 
     @contextmanager
     def get_sample(self):
         max_sample = np.min([self.sample_size, self.empty_coos.size])
-        empty_coos_coords = np.random.choice(np.arange(self.empty_coos.size), max_sample, replace=False)
+        empty_coos_coords = np.random.choice(
+            np.arange(self.empty_coos.size), max_sample, replace=False
+        )
         sample_points = self.empty_coos[empty_coos_coords]
         empty_coos = x, y, z = self.coos[sample_points].T
-        filled_coos = self.coos[np.unique(np.random.choice(self.filled_coos, self.sample_size))].T
+        filled_coos = self.coos[
+            np.unique(np.random.choice(self.filled_coos, self.sample_size))
+        ].T
         try:
             yield empty_coos, filled_coos
         finally:
@@ -138,16 +150,24 @@ class Grid(np.ndarray):
             ex, ey, ez = e = sample[0]
             fx, fy, fz = f = sample[1]
             filled_samples = self[fx, fy, fz]
-            dists = self.calculate_self_distance(f.copy(), xy_delta=self.xy_delta, z_delta=self.z_delta)
+            dists = self.calculate_self_distance(
+                f.copy(), xy_delta=self.xy_delta, z_delta=self.z_delta
+            )
             semivariance = self.MSE(filled_samples)
             model = self.get_fitted_model(dists, semivariance)
-            sample_dists = self.sample_distance(f.copy(), e.copy(), xy_delta=self.xy_delta, z_delta=self.z_delta)
+            sample_dists = self.sample_distance(
+                f.copy(), e.copy(), xy_delta=self.xy_delta, z_delta=self.z_delta
+            )
             calculated_semivariance = np.linalg.inv(model(dists))
             sample_semivariance = model(sample_dists)
-            weights = np.dot(calculated_semivariance, np.expand_dims(sample_semivariance, 2)).squeeze().T
+            weights = (
+                np.dot(calculated_semivariance, np.expand_dims(sample_semivariance, 2))
+                .squeeze()
+                .T
+            )
             new_vals = np.sum(filled_samples * weights, axis=1)
             self[ex, ey, ez] = new_vals
-        return ex.size # The number of empty cells that were filled
+        return ex.size  # The number of empty cells that were filled
 
     def krig(self, *args, sample_size=1, **kwargs):
         t1 = time.time()
@@ -156,12 +176,20 @@ class Grid(np.ndarray):
         t2 = time.time()
         self.logger.info(f"Finished in {round(t2 - t1, 2)} seconds")
         return self
-    
+
+    def done(self, *args, **kwargs):
+        if not np.isnan(self).any():
+            return args
+
+    def clean_grid(self):
+        self[:] = 0
+        return self
+
     def get_fitted_model(self, dists, vals):
         model = fk.config.model(fk.config.model_kwargs)
         model.autofit(dists.ravel(), vals.ravel())
         return model
-    
+
     @staticmethod
     def sample_distance(filled, empty, xy_delta=1, z_delta=1, two_D=True) -> np.ndarray:
         filled[:2, :] *= xy_delta
@@ -169,19 +197,27 @@ class Grid(np.ndarray):
         empty[:2, :] *= xy_delta
         empty[2, :] *= z_delta
         if two_D:
-            return np.sqrt(np.sum(np.square(filled[:2, :] - np.expand_dims(empty[:2, :].T, 2)), axis=1))
+            return np.sqrt(
+                np.sum(
+                    np.square(filled[:2, :] - np.expand_dims(empty[:2, :].T, 2)), axis=1
+                )
+            )
         else:
-            return np.sqrt(np.sum(np.square(filled - np.expand_dims(empty.T, 2)), axis=1))
+            return np.sqrt(
+                np.sum(np.square(filled - np.expand_dims(empty.T, 2)), axis=1)
+            )
 
     @staticmethod
-    def calculate_self_distance(coords:np.ndarray, xy_delta=1, z_delta=1, two_D=True) -> np.ndarray:
+    def calculate_self_distance(
+        coords: np.ndarray, xy_delta=1, z_delta=1, two_D=True
+    ) -> np.ndarray:
         """This method will calculate the distance from each point
         to every other point in the grid.  This can quickly lead to memory
         errors, so precautions should be taken to limit the size of the input
-        coordinates. 
+        coordinates.
 
         Args:
-            coords (np.ndarray): The input coordinates for the filled datapoints.  
+            coords (np.ndarray): The input coordinates for the filled datapoints.
                                  Should be of shape (3, no_datapoints)
             two_D (Bool): Whether or not to calculate a 2D distance instead of 3D.
                             Defaults to True.
@@ -192,29 +228,103 @@ class Grid(np.ndarray):
         coords[:2, :] *= xy_delta
         coords[2, :] *= z_delta
         if two_D:
-            return np.sqrt(np.sum(np.square(coords[:2, :] - np.expand_dims(coords[:2, :].T, 2)), axis=1))
+            return np.sqrt(
+                np.sum(
+                    np.square(coords[:2, :] - np.expand_dims(coords[:2, :].T, 2)),
+                    axis=1,
+                )
+            )
         else:
-            return np.sqrt(np.sum(np.square(coords - np.expand_dims(coords.T, 2)), axis=1))
-    
+            return np.sqrt(
+                np.sum(np.square(coords - np.expand_dims(coords.T, 2)), axis=1)
+            )
+
     @staticmethod
     def MSE(vals: np.ndarray) -> np.ndarray:
         """This method will calculate the mean squared difference between every
         two values in the input array.  This is to generate values to go into the
-        experimental variogram. This can quickly lead to memory errors, so 
-        precautions should be taken to limit the size of the input values. 
+        experimental variogram. This can quickly lead to memory errors, so
+        precautions should be taken to limit the size of the input values.
 
         Args:
             vals (np.ndarray): The observed values in the sampled grid.
 
         Returns:
             np.ndarray: The squared distances of each point to every other point.
-        """        
-        return np.square(vals - np.expand_dims(vals.reshape(-1, 1), 1)).squeeze() / vals.size
+        """
+        return (
+            np.square(vals - np.expand_dims(vals.reshape(-1, 1), 1)).squeeze()
+            / vals.size
+        )
 
 
+class Krig(WorkForce):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.aggregate_mean = kwargs.get("worker").copy().clean_grid()
+        self.aggregate_variance = kwargs.get("worker").copy().clean_grid()
+        self.workload = 0
+        self.grids_out = 1
+
+    def __call__(self, num_grids):
+        self.krig_multi(num_grids)
+        self.manage_outputs()
+
+    def krig_single(self):
+        self.krig()
+        self.workload += 1
+        self.check_workload()
+
+    def krig_multi(self, num_grids):
+        for _ in range(num_grids):
+            self.krig_single()
+
+    def manage_outputs(self):
+        self.logger.info("Waiting for outputs")
+        while True:
+            self.cleanup()
+            self.check_workload()
+            if self.workload == 0:
+                break
+            output = self._read()
+            if isinstance(output, Grid):
+                self.read_grid(output)
+            elif isinstance(output, dict):
+                self.terminate_worker(output.get("name", None))
+                self.cleanup()
+
+    def incrimental_mean(self, output):
+        self.aggregate_mean *= (self.grids_out - 1) / self.grids_out
+        self.aggregate_mean += output * (1 / self.grids_out)
+
+    def incrimental_variance(self, output):
+        self.aggregate_variance = (
+            (self.grids_out - 2) / (self.grids_out - 1)
+        ) * self.aggregate_variance + (
+            (1 / self.grids_out) * np.square((output - self.aggregate_mean))
+        )
+
+    def read_grid(self, output):
+        self.workload -= 1
+        self.incrimental_mean(output)
+        self.grids_out += 1
+        self.incrimental_variance(output)
+        self.logger.info(f"Workload is: {self.workload}")
+        self.logger.info(f"grids out is: {self.grids_out}")
+        self.check_workload()
+
+    def terminate_worker(self, name):
+        [worker.terminate() for worker in self.workers if worker.name == name]
+
+    def cleanup(self):
+        self.workers = [worker for worker in self.workers if worker.is_alive()]
+
+    def check_workload(self):
+        if self.workload >= len(self.workers):
+            [self._spawn() for _ in range(2)]
 
 
-#np.sqrt(np.sum(np.square(f - np.expand_dims(f.T, 2)), axis=1))
+# np.sqrt(np.sum(np.square(f - np.expand_dims(f.T, 2)), axis=1))
 
 """
 from fast_krig.examples.logs import generate_fake_log
@@ -241,24 +351,33 @@ plt.show()
 
 
 
-from fast_krig.examples.logs import generate_fake_log
+from fast_krig.examples.grids import generate_fake_grid
 from fast_krig.grid import Grid
 from fast_krig.utils import WorkForce
+from fast_krig.grid import Krig
+import fast_krig as fk
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 
-fake_logs = [
-    generate_fake_log(9000, 10000, 1, 0.2, 5, log=False, name="RESISTIVITY")
-    for i in range(3000)
-]
+grid = generate_fake_grid()
 
-grid = Grid(fake_logs, stream="RESISTIVITY", z_range=(9900, 9901))
+krig = Krig(worker=grid, max_workers=4)
+
+krig(8)
 
 
-workforce = WorkForce(worker=grid)
+krig(50)
 
-workforce._spawn()
-workforce.krig()
+fig, ax = plt.subplots(1, 2)
+ax[0].set_title("Mean")
+ax[1].set_title("Std Deviation")
+sns.heatmap(np.array(krig.aggregate_variance).squeeze(), cmap="magma", ax=ax[1])
+sns.heatmap(np.array(krig.aggregate_mean).squeeze(), cmap="magma", ax=ax[0])
+plt.show()
 
+
+plt.imshow(np.array(krig.aggregate_mean))
+plt.show()
 
 """

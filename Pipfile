@@ -18,6 +18,7 @@ pre-commit = "*"
 tox = "*"
 sphinx = "*"
 matplotlib = "*"
+seaborn = "*"
 
 [requires]
 python_version = "3.9"

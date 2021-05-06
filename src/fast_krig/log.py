@@ -23,6 +23,9 @@ class Log:
         for name, stream in self.streams.items():
             setattr(self, name, stream)
         wrap_debug(self)
+    
+    def __repr__(self):
+        return f"{self.__class__.__name__} with streams {self.streams.keys()} from {self.index.min()}-{self.index.max()}"
 
     @classmethod
     def from_numpy(
