@@ -53,31 +53,3 @@ class Log:
     @classmethod
     def from_las(cls, path: Union[str, os.PathLike, Path]):
         raise NotImplementedError
-
-
-"""
-from fast_krig.log import Log
-import fast_krig as fk
-import numpy as np
-a = np.arange(500)
-b = np.random.random((500, 2))
-arr = np.hstack([a.reshape(-1, 1), b])
-depth = "DPT"
-labels = ["DPT", "A", "B"]
-x_coord = 5000
-y_coord = 14450
-
-resistivity = Log.from_numpy(arr, depth, labels, x_coord=x_coord, y_coord=y_coord)
-resistivity.printt("45", with_unit="mpg")
-fk.config.logger.setLevel(10)
-resistivity.printt("45", with_unit="mpg")
-
-
-
-import lasio
-
-
-path = "data/sample_logs/49-005-30258.las"
-log = lasio.read(path)
-
-"""
