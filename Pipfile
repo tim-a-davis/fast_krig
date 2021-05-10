@@ -19,6 +19,7 @@ tox = "*"
 sphinx = "*"
 matplotlib = "*"
 seaborn = "*"
+imageio = "*"
 
 [requires]
 python_version = "3.9"

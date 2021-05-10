@@ -171,7 +171,7 @@ class Grid(np.ndarray):
 
     def krig(self, *args, sample_size=1, **kwargs):
         t1 = time.time()
-        while sample_size > 0:
+        while np.isnan(self).any():
             sample_size = self.krig_sample()
         t2 = time.time()
         self.logger.info(f"Finished in {round(t2 - t1, 2)} seconds")
@@ -367,11 +367,16 @@ krig = Krig(worker=grid, max_workers=4)
 krig(8)
 
 
-krig(50)
+krig(150)
 
 fig, ax = plt.subplots(1, 2)
 ax[0].set_title("Mean")
 ax[1].set_title("Std Deviation")
+for axs in ax:
+    axs.get_xaxis().set_visible(False)
+    axs.get_yaxis().set_visible(False)
+
+
 sns.heatmap(np.array(krig.aggregate_variance).squeeze(), cmap="magma", ax=ax[1])
 sns.heatmap(np.array(krig.aggregate_mean).squeeze(), cmap="magma", ax=ax[0])
 plt.show()
@@ -379,5 +384,96 @@ plt.show()
 
 plt.imshow(np.array(krig.aggregate_mean))
 plt.show()
+
+
+
+
+
+from fast_krig.examples.logs import generate_fake_log
+from fast_krig.grid import Grid, GridConstructor
+from fast_krig.utils import WorkForce
+from fast_krig.grid import Krig
+import fast_krig as fk
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+logs = [
+    generate_fake_log(9000, 10000, 1, 0.2, 5, log=False, name="RESISTIVITY")
+    for i in range(300)
+]
+grid = Grid(
+    logs, 
+    stream="RESISTIVITY", 
+    z_range=(9900, 9901), 
+    xy_delta=200
+)
+
+krig = Krig(worker=grid, max_workers=4)
+krig(30)
+
+
+
+
+images = []
+
+sample_size = 1
+while sample_size > 0:
+    sample_size = grid.krig_sample()
+    fig, ax = plt.subplots()
+    h = sns.heatmap(np.nan_to_num(np.array(grid), 0).squeeze(), cmap="magma")
+    sns.despine()
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+    fig.canvas.draw()
+    image = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8')
+    image = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    images.append(image)
+    plt.close("all")
+
+
+
+imageio.mimsave('krig.gif', images, fps=15)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+from fast_krig import Dummy
+
+import multiprocessing as mp
+from fast_krig.utils import WorkForce
+
+class Dummy:
+    def print_args(*args):
+        print(f"{mp.current_process().pid} is printing {args}")
+
+
+workforce = WorkForce(worker=Dummy())
+workforce._spawn()
+workforce.print_args("Hello there!")
+
+
+
+
+
+from fast_krig import WorkForce
+
+
+workforce = WorkForce()
+workforce.non_existent_method("Hello there", exclaim="!")
 
 """
