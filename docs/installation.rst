@@ -47,5 +47,5 @@ Once you have a copy of the source, you can install it with:
     $ python setup.py install
 
 
-.. _Github repo: https://github.com/csci-e-29/fast_krig
-.. _tarball: https://github.com/csci-e-29/fast_krig/tarball/master
+.. _Github repo: https://github.com/tim-a-davis/fast_krig
+.. _tarball: https://github.com/tim-a-davis/fast_krig/tarball/master
