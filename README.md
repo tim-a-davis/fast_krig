@@ -1,20 +1,23 @@
 # Final Project
 
-Add any badges to your ***published documentation*** up here!
+[![Documentation Status](https://readthedocs.org/projects/fast-krig/badge/?version=latest)](https://fast-krig.readthedocs.io/en/latest/?badge=latest)
+
+
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Documenting your project](#documenting-your-project)
-  - [Set up](#set-up)
-  - [The writeup](#the-writeup)
-    - [Requirements](#requirements)
-  - [Build and publish](#build-and-publish)
-    - [Read the Docs](#read-the-docs)
-    - [GithubPages](#githubpages)
-    - [Your own host](#your-own-host)
-    - [Private options](#private-options)
+- [Final Project](#final-project)
+  - [Documenting your project](#documenting-your-project)
+    - [Set up](#set-up)
+    - [The writeup](#the-writeup)
+      - [Requirements](#requirements)
+    - [Build and publish](#build-and-publish)
+      - [Read the Docs](#read-the-docs)
+      - [GithubPages](#githubpages)
+      - [Your own host](#your-own-host)
+      - [Private options](#private-options)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
