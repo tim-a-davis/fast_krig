@@ -1,8 +1,13 @@
 Welcome to Fast Krig's documentation!
-======================================
+=====================================
+
+
+.. automodule:: fast_krig
+   :members:
+   :private-members:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Contents:
 
    readme
