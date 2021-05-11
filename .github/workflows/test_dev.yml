@@ -34,13 +34,14 @@ jobs:
         CANVAS_TOKEN: ${{ secrets.CANVAS_TOKEN }}
       run: |
         python -m pip install pipenv
-        pipenv install -e "git+https://${GITHUB_TOKEN}:x-oauth-basic@github.com/csci-e-29/2021sp-csci-utils-tim-a-davis#egg=csci-utils[luigi]"
+        pipenv install -e "git+https://${GITHUB_TOKEN}:x-oauth-basic@github.com/csci-e-29/2021sp-csci-utils-tim-a-davis#egg=csci-utils"
         python -m pip install --upgrade pip
-        python -m pip install flake8
         pipenv install --dev --ignore-pipfile --deploy
-    - name: Lint with flake8
+    - name: Submit!
+      env:
+        GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        CANVAS_COURSE_ID: ${{ secrets.CANVAS_COURSE_ID }}
+        CANVAS_URL: ${{ secrets.CANVAS_URL }}
+        CANVAS_TOKEN: ${{ secrets.CANVAS_TOKEN }}
       run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        pipenv run python -m src

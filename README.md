@@ -1,8 +1,12 @@
 # Final Project
 
+[![Build Status](https://github.com/tim-a-davis/fast_krig/workflows/Build%20Status/badge.svg)](https://github.com/tim-a-davis/fast_krig/actions)
+
 [![Documentation Status](https://readthedocs.org/projects/fast-krig/badge/?version=latest)](https://fast-krig.readthedocs.io/en/latest/?badge=latest)
 
+I had to port the code to this repo to make it public.
 
+The Docs: https://fast-krig.readthedocs.io/en/latest/index.html
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->

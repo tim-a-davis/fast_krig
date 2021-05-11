@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from pset_5.tasks import ByDayOfWeek, ByStars, ByYear
 from csci_utils import canvas
-from luigi import build
 import argparse
 from git import Repo
 import functools
@@ -11,37 +9,7 @@ import json
 from pprint import pprint
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument(
-    "--full",
-    action="store_true",
-    help="Passing this argument performs analysis on all the data",
-)
-opt = parser.parse_args()
-
-
-@functools.lru_cache(maxsize=5)
-def load_df(task):
-    return task(subset=not opt.full).get_results()
-
-
-def answer_by(key, task=None):
-    df = load_df(task)
-    key = key.split("_")[-1]
-    df.index = df.index.astype(str)
-    return df.loc[key][0]
-
-
 def main():
-    build(
-        [
-            ByDayOfWeek(subset=not opt.full),
-            ByStars(subset=not opt.full),
-            ByYear(subset=not opt.full),
-        ],
-        local_scheduler=True,
-    )
-
     repo = Repo(".")  # Get the current repo
     is_clean = not repo.is_dirty()
     commit_hash = repo.head.commit.hexsha[:8]
@@ -56,7 +24,16 @@ def main():
     url = "https://github.com/tim-a-davis/{}/commit/{}".format(
         os.path.basename(repo.working_dir), repo.head.commit.hexsha
     )
-    # Assign answers to questions
+# Assign answers to questions
+    comments = dict(
+        hexsha=repo.head.commit.hexsha[:8],
+        submitted_from=repo.remotes.origin.url,
+        dt=repo.head.commit.committed_datetime.isoformat(),
+        branch=os.environ.get("GITHUB_ACTIVE_BRANCH", ""),
+        use_late_days=os.environ.get("USE_LATE_DAYS", 0),
+        is_dirty=repo.is_dirty(),
+        docs="https://fast-krig.readthedocs.io/en/latest/index.html"
+    )
 
     assignment = course.assignments["Final Project"]
     assignment.submit(
@@ -65,7 +42,7 @@ def main():
             url=url,
         ),
         comment=dict(
-            text_comment=json.dumps(course.get_submission_comments(submission))
+            text_comment=json.dumps(comments)
         ),
         **{},
     )

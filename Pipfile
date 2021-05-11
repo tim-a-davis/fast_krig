@@ -8,6 +8,8 @@ fast-krig = {editable = true, path = "."}
 numpy = "*"
 pandas = "*"
 lasio = "*"
+csci-utils = {git = "https://github.com/csci-e-29/2021sp-csci-utils-tim-a-davis.git"}
+gitpython = "*"
 
 [dev-packages]
 pytest = "*"
