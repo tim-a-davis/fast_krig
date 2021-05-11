@@ -32,13 +32,13 @@ You can either clone the public repository:
 
 .. code-block:: console
 
-    $ git clone git://github.com/csci-e-29/fast_krig
+    $ git clone git://github.com/tim-a-davis/fast_krig
 
 Or download the `tarball`_:
 
 .. code-block:: console
 
-    $ curl -OJL https://github.com/csci-e-29/fast_krig/tarball/master
+    $ curl -OJL https://github.com/fast_krig/fast_krig/tarball/master
 
 Once you have a copy of the source, you can install it with:
 
