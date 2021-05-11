@@ -42,7 +42,7 @@ class WorkForce:
         "method": The method on the worker to execute,
         "args": The arguments to the method,
         "kwargs": The keyword arguments to the method
-    
+
     The multiprocessing workers have access to all the methods of the worker object passed.
     But the methods can be called on this worker like so:
 
@@ -56,11 +56,12 @@ class WorkForce:
         inlet (Queue): The inlet queue on which method calls are sent.
         outlet (Queue): The outlet queue on which results are sent.
         daemon (bool): Whether or not to put the workers on daemon.
-        max_workers (int): The maximum number of workers to spawn. 
+        max_workers (int): The maximum number of workers to spawn.
 
     Returns:
         A list of worker thread objects.
     """
+
     def __init__(
         self,
         *args,
@@ -79,7 +80,7 @@ class WorkForce:
             outlet ([type], optional): The outlet multiprocessing queue where the results are sent. Defaults to Queue().
             daemon (bool, optional): Whether or not to put the workers on a daemon. Defaults to True.
             max_workers (int, optional): The number of workers. Defaults to 2.
-        """    
+        """
         self.worker = worker
         self.inlet = inlet
         self.outlet = outlet
@@ -90,7 +91,7 @@ class WorkForce:
 
     def __getattr__(self, attr):
         """Interception for method calls.
-        If the method call on this class raises a key error, then the method is 
+        If the method call on this class raises a key error, then the method is
         routed to `_exec_method` to be sent to a worker.
 
         Args:
@@ -98,7 +99,7 @@ class WorkForce:
 
         Returns:
             Callable: A partial execution of `_exec_method` with the method defined.
-        """        
+        """
         try:
             return super(WorkForce, self).__getattr__(attr)
         except AttributeError:
@@ -109,7 +110,7 @@ class WorkForce:
 
         Returns:
             multiprocess: The multiprocess worker.
-        """        
+        """
         name = str(uuid.uuid4())
         func = make_worker(daemon=True, name=name)(make_workers)
         return func(
@@ -122,7 +123,7 @@ class WorkForce:
     def _spawn(self):
         """If there are not enough workers to fulfill the work, then a worker is
         spawned, as long as the max_workers is not reached.
-        """        
+        """
         if len(self.workers) < self.max_workers:
             worker = self._make_worker()
             self.workers.append(worker)
@@ -138,7 +139,7 @@ class WorkForce:
 
         Args:
             method (str, optional): The name of the method to call. Defaults to None.
-        """        
+        """
         message = dict(method=method, args=args, kwargs=kwargs)
         self.inlet.put(message)
 
@@ -147,7 +148,7 @@ class WorkForce:
 
         Returns:
             Object: The outlet object.
-        """        
+        """
         try:
             return self.outlet.get_nowait()
         except queue.Empty:

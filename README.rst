@@ -177,4 +177,183 @@ Now when we interact with our `Grid` object, it feel exactly like numpy.
 Multiprocessing (The elegant way)
 =================================
 
+Motivation
+~~~~~~~~~~
 
+In order to speed up the kriging of tens or hundreds of grids, multiprocessing is used to provided a speedup
+in the processing time.  However, multiprocessing can be non-trivial, and the syntax can be quite different
+than the same operation on a single process.  A more elegant way to interact with multiple processes is desired,
+such that the interaction with the sub processes feels exactly like single processed to the user.
+
+The goal is to have something like the following:
+
+.. code-block:: python
+
+    >>> grid = Grid(logs=logs)
+    >>> distributed_grid = DistGrid(grid, processes=6)
+    >>> distributed_grid.krig(100)
+
+
+Having something very simple will increase the usability and make working with the objects much easier.
+
+Calling The Worker
+~~~~~~~~~~~~~~~~~~
+
+In order to accomplish this task, the first step is to define a function that can simply execute methods
+on a worker easily.  The target in multiprocessing is a function, so that is the paradigm we will work with.
+The following shows one implementation of such a function:
+
+
+.. code-block:: python
+
+    def make_workers(worker=None, worker_queue=None,
+                     result_queue=None, myname=None):
+        while True:
+            try:
+                message = worker_queue.get() #get the message
+                method_name = message.get("method", None) # extract the method name from the message
+                method = getattr(worker, method_name) # get the method object from the worker
+                args = message.get("args", []) # Get the args from the message
+                kwargs = message.get("kwargs", {}) # get the kwargs from the message
+                name = message.get("name", None) # get the name from the message
+                ...
+                results = method(*args, **kwargs) # execute the method
+                results.queue.put(results) # put the results on the queue
+
+
+We can see that the above function takes a message from a multiprocessing queue, where the message
+contains the name of a method, as well as arguments and keyword arguments.  The method is extracted
+from the input worker, and then the results from the executed method are put on a results queue.  In
+this way, any method on the worker can be executed if the name, args, and kwargs of that method are
+passed into the message queue.
+
+
+Sub Processing
+~~~~~~~~~~~~~~
+
+The next step is to place the previously defined function on a sub process.  To do this,
+a simple wrapper can be defined that places any input function on a subclass.  On such 
+wrapper is as follows:
+
+
+.. code-block:: python
+
+    def make_worker(daemon=True, name=None):
+        def decorator(func):
+            @functools.wraps(func)
+            def wrapper(*args, **kwargs):
+                proc = Process(
+                    target=func, args=args, kwargs=kwargs,
+                    daemon=daemon, name=name
+                )
+                prod.start()
+                return proc
+            return wrapper
+        return decorator
+
+
+We can now wrap our previously defined function with this wrapper, such that any time we call 
+the resulting function, a new sub process is started with the worker object.  And on that sub
+process, we can execute any method on the worker object by sending a message to the worker queue.
+
+
+Managing Processes
+~~~~~~~~~~~~~~~~~~
+
+Since many processes will be created, it makes sense to place them in an organizing obejct to 
+handle the creation, termination, and execution of methods on those workers.  This is the purpose
+of the `WorkForce` class.  This class will manage the workers, and execute all the commands.  A 
+sample of how it creates and stores workers on the object is below:
+
+.. code-block:: python
+
+    class WorkForce:
+        def __init__(
+            self,
+            *args,
+            worker=None,
+            ...
+        ):
+            ...
+            self.worker = worker
+            self.workers = []
+        
+        def make_worker(self):
+            func = make_worker()(make_workers) # our multiprocessed function
+            return func(
+                worker=self.worker,
+                ...
+            )
+        
+        def _spawn(self):
+            ...
+            worker = self._make_worker()
+            self.workers.append(worker)
+            ...
+
+
+Intercepting methods
+~~~~~~~~~~~~~~~~~~~~
+
+In order to make the execution of these methods on the workers seamless, 
+we must be able to simply make method calls like we would if there were no multiprocessing
+involved.  The tricky part is that we don't inherit the worker object into our multiprocessing wrapper,
+and so those methods aren't defined.  We could write a function to make the message to execute
+the function with our wrapped function we made previously, but that is also not seamless.  The solution
+is to intercept method calls, and send method calls to the queue if they are not defined on the parent 
+class.  The result should be identical to single processed.  The solution is as follows:
+
+
+.. code-block:: python
+
+    class WorkForce:
+        def __init__(
+            self,
+            *args,
+            worker=None,
+            ...
+        ):
+            ...
+            self.worker = worker
+        
+        def _exec_method(self, *args, method=None, **kwargs):
+            message = dict(methodd=method, args=args, kwargs=kwargs)
+            pprint(message)
+            self.inlet.put(message)
+        
+        def __getattr__(self, attr):
+            try:
+                return super(Workforce, self).__getattr__(attr)
+            except AttributeError:
+                # if the method does not exist, pass a partial execution
+                # of _exec_method.
+                return functools.partial(self._exec_method, method=attr)
+
+
+The intercepting the method calls in this way, we can achieve the following interface:
+
+.. code-block:: python
+
+    >>> workforce = WorkForce()
+    >>> workforce.non_existent_method(
+        "Hello there", exclaim="!")
+    {'args': ('Hello there',),
+     'kwargs': {'exclaim': '!'},
+     'method': 'non_existent_method'}
+
+
+That message that `_exec_method` creates will be sent to our multiprocessed function to
+execute methods on our worker object.  In this way, the interface wth our sub processes is
+totally seamless.
+
+
+Results
+=======
+
+When many grids are kriged stochastically, our WorkForce object can collect
+and aggregate these many grids and calculate incremental statistics with those
+grids.  The output is a mean and standard deviation expected grid.
+
+.. image:: ../docs/pasted-image.png
+  :width: 600
+  :alt: Alternative text
