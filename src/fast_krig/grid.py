@@ -55,6 +55,9 @@ class GridConstructor:
         self.stream = stream
         if auto_range:
             self._get_auto_xy_range()
+        else:
+            self.x_range = x_range
+            self.y_range = y_range
         self.z_range = z_range or self._get_auto_z_range()
         self._make_grid()
         self._fill_grid()
